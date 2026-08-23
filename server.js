@@ -46,11 +46,13 @@ app.use('/api/events', require('./routes/eventRoutes'));
 app.use('/api/registrations', require('./routes/registrationRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
 
-app.get('/health', (req, res) => {
-  const isDbConnected = mongoose.connection.readyState === 1; 
-  if (isDbConnected) {
+app.get('/health', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGO_URI);
+    }
     res.status(200).json({ status: 'success', message: 'Server is healthy' });
-  } else {
+  } catch (error) {
     res.status(500).json({ status: 'error', message: 'Database connection failed' });
   }
 });
