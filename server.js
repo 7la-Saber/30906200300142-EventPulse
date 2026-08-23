@@ -6,9 +6,9 @@ const { Server } = require('socket.io');
 const Message = require('./models/Message');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
+const path = require('path'); // نقلنا السطر ده لفوق هنا
 const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
 const mongoose = require('mongoose');
-const path = require('path');
 const errorHandler = require('./middleware/errorMiddleware');
 
 dotenv.config();
@@ -80,5 +80,3 @@ server.listen(PORT, () => {
 });
 
 module.exports = app;
-
-
