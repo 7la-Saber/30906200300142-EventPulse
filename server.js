@@ -6,7 +6,7 @@ const { Server } = require('socket.io');
 const Message = require('./models/Message');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
-const path = require('path'); // نقلنا السطر ده لفوق هنا
+const path = require('path');
 const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
 const mongoose = require('mongoose');
 const errorHandler = require('./middleware/errorMiddleware');
@@ -16,14 +16,15 @@ connectDB();
 
 const app = express();
 app.use(express.json());
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+const CSS_URL = "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.3.0/swagger-ui.min.css";
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, { customCssUrl: CSS_URL }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*' }
 });
 
-// 1. استدعاء كل الروابط (Routes)
+
 const authRoutes = require('./routes/authRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const registrationRoutes = require('./routes/registrationRoutes');
@@ -37,7 +38,7 @@ app.use('/api/messages', messageRoutes);
 
 
 app.get('/health', (req, res) => {
-  // 1 يعني متصل بقاعدة البيانات
+
   const isDbConnected = mongoose.connection.readyState === 1; 
   if (isDbConnected) {
     res.status(200).json({ status: 'success', message: 'Server is healthy and Database is connected' });
@@ -46,7 +47,7 @@ app.get('/health', (req, res) => {
   }
 });
 
-// 3. إعدادات Socket.io
+o
 io.on('connection', (socket) => {
   console.log(`New client connected: ${socket.id}`);
 
@@ -70,7 +71,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// 4. جدار معالجة الأخطاء (لازم يكون هنا في الآخر قبل تشغيل السيرفر)
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
