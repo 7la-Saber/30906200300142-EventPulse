@@ -6,9 +6,9 @@ const { Server } = require('socket.io');
 const Message = require('./models/Message');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
-const swaggerDocument = YAML.load('./swagger.yaml');
+const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
 const mongoose = require('mongoose');
-// استدعاء جدار معالجة الأخطاء
+const path = require('path');
 const errorHandler = require('./middleware/errorMiddleware');
 
 dotenv.config();
