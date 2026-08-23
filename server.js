@@ -1,7 +1,6 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
-const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
 const mongoose = require('mongoose');
 const errorHandler = require('./middleware/errorMiddleware');
@@ -14,8 +13,33 @@ const app = express();
 app.use(express.json());
 
 
-const CSS_URL = "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.1.0/swagger-ui.min.css";
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, { customCssUrl: CSS_URL }));
+app.get('/swagger.json', (req, res) => res.json(swaggerDocument));
+
+app.get('/api-docs', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <title>EventPulse API Docs</title>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css" />
+    </head>
+    <body>
+      <div id="swagger-ui"></div>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.js"></script>
+      <script>
+        window.onload = () => {
+          window.ui = SwaggerUIBundle({
+            url: '/swagger.json',
+            dom_id: '#swagger-ui',
+          });
+        };
+      </script>
+    </body>
+    </html>
+  `);
+});
+
 
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/events', require('./routes/eventRoutes'));
@@ -25,14 +49,13 @@ app.use('/api/messages', require('./routes/messageRoutes'));
 app.get('/health', (req, res) => {
   const isDbConnected = mongoose.connection.readyState === 1; 
   if (isDbConnected) {
-    res.status(200).json({ status: 'success', message: 'Server is healthy and Database is connected' });
+    res.status(200).json({ status: 'success', message: 'Server is healthy' });
   } else {
     res.status(500).json({ status: 'error', message: 'Database connection failed' });
   }
 });
 
 app.use(errorHandler);
-
 
 if (!process.env.VERCEL) {
   const http = require('http');
