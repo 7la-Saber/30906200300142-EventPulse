@@ -1,43 +1,27 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
-const http = require('http');
-const { Server } = require('socket.io');
-const Message = require('./models/Message');
 const swaggerUi = require('swagger-ui-express');
-const path = require('path');
 const swaggerDocument = require('./swagger.json');
 const mongoose = require('mongoose');
 const errorHandler = require('./middleware/errorMiddleware');
+const Message = require('./models/Message');
 
 dotenv.config();
 connectDB();
 
 const app = express();
 app.use(express.json());
+
 const CSS_URL = "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.3.0/swagger-ui.min.css";
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, { customCssUrl: CSS_URL }));
 
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' }
-});
-
-
-const authRoutes = require('./routes/authRoutes');
-const eventRoutes = require('./routes/eventRoutes');
-const registrationRoutes = require('./routes/registrationRoutes');
-const messageRoutes = require('./routes/messageRoutes');
-
-// 2. استخدام الروابط
-app.use('/api/auth', authRoutes);
-app.use('/api/events', eventRoutes);
-app.use('/api/registrations', registrationRoutes);
-app.use('/api/messages', messageRoutes);
-
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/events', require('./routes/eventRoutes'));
+app.use('/api/registrations', require('./routes/registrationRoutes'));
+app.use('/api/messages', require('./routes/messageRoutes'));
 
 app.get('/health', (req, res) => {
-
   const isDbConnected = mongoose.connection.readyState === 1; 
   if (isDbConnected) {
     res.status(200).json({ status: 'success', message: 'Server is healthy and Database is connected' });
@@ -46,38 +30,38 @@ app.get('/health', (req, res) => {
   }
 });
 
-o
-io.on('connection', (socket) => {
-  console.log(`New client connected: ${socket.id}`);
-
-  socket.on('joinEvent', (eventId) => {
-    socket.join(eventId);
-    console.log(`User joined event room: ${eventId}`);
-  });
-
-  socket.on('sendAnnouncement', async (data) => {
-    try {
-      const { eventId, senderId, text } = data;
-      const message = await Message.create({ event: eventId, sender: senderId, text });
-      io.to(eventId).emit('receiveAnnouncement', message);
-    } catch (error) {
-      console.error('Error saving message:', error);
-    }
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`Client disconnected: ${socket.id}`);
-  });
-});
-
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
 
 if (!process.env.VERCEL) {
+  const http = require('http');
+  const { Server } = require('socket.io');
+  const server = http.createServer(app);
+  const io = new Server(server, { cors: { origin: '*' } });
+
+  io.on('connection', (socket) => {
+    console.log(`New client connected: ${socket.id}`);
+    
+    socket.on('joinEvent', (eventId) => {
+      socket.join(eventId);
+    });
+
+    socket.on('sendAnnouncement', async (data) => {
+      try {
+        const { eventId, senderId, text } = data;
+        const message = await Message.create({ event: eventId, sender: senderId, text });
+        io.to(eventId).emit('receiveAnnouncement', message);
+      } catch (error) {
+        console.error('Error saving message:', error);
+      }
+    });
+  });
+
+  const PORT = process.env.PORT || 3000;
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
 }
+
 
 module.exports = app;
