@@ -2,10 +2,14 @@ const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const swaggerUi = require('swagger-ui-express');
-const swaggerDocument = require('./swagger.json');
+const swaggerDocument = require('./swagger.json'); 
 const mongoose = require('mongoose');
 const errorHandler = require('./middleware/errorMiddleware');
 const Message = require('./models/Message');
+
+
+const swaggerUiDist = require('swagger-ui-dist');
+const pathToSwaggerUi = swaggerUiDist.absolutePath();
 
 dotenv.config();
 connectDB();
@@ -13,13 +17,25 @@ connectDB();
 const app = express();
 app.use(express.json());
 
-const CSS_URL = "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.3.0/swagger-ui.min.css";
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, { customCssUrl: CSS_URL }));
+
+app.use('/api-docs/swagger-ui', express.static(pathToSwaggerUi)); 
+app.use(
+  '/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocument, {
+    customCssUrl: '/api-docs/swagger-ui/swagger-ui.css',
+    customJs: [
+      '/api-docs/swagger-ui/swagger-ui-bundle.js',
+      '/api-docs/swagger-ui/swagger-ui-standalone-preset.js'
+    ]
+  })
+);
 
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/events', require('./routes/eventRoutes'));
 app.use('/api/registrations', require('./routes/registrationRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
+
 
 app.get('/health', (req, res) => {
   const isDbConnected = mongoose.connection.readyState === 1; 
@@ -29,6 +45,7 @@ app.get('/health', (req, res) => {
     res.status(500).json({ status: 'error', message: 'Database connection failed' });
   }
 });
+
 
 app.use(errorHandler);
 
@@ -41,7 +58,7 @@ if (!process.env.VERCEL) {
 
   io.on('connection', (socket) => {
     console.log(`New client connected: ${socket.id}`);
-    
+
     socket.on('joinEvent', (eventId) => {
       socket.join(eventId);
     });
@@ -62,6 +79,5 @@ if (!process.env.VERCEL) {
     console.log(`Server is running on port ${PORT}`);
   });
 }
-
 
 module.exports = app;
