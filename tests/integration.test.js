@@ -3,7 +3,7 @@ const app = require('../server');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 
-// 1. زيادة وقت الاختبار لـ 30 ثانية عشان نتجنب الـ Timeout
+
 jest.setTimeout(30000);
 
 let token;
@@ -12,7 +12,6 @@ let uniqueEmail;
 beforeAll(async () => {
   uniqueEmail = `admin_${Date.now()}@test.com`;
 
-  // 2. إنشاء المستخدم مباشرة في الداتا بيز
   await User.create({
     name: 'Admin Test',
     email: uniqueEmail,
@@ -20,7 +19,7 @@ beforeAll(async () => {
     role: 'admin'
   });
 
-  // 3. تسجيل الدخول للحصول على التوكن
+
   const loginRes = await request(app).post('/api/auth/login').send({
     email: uniqueEmail,
     password: 'password123'
@@ -30,7 +29,6 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // تنظيف الداتا بيز بعد الانتهاء
   await User.deleteOne({ email: uniqueEmail });
   await mongoose.connection.close();
 });

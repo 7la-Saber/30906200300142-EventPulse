@@ -1,84 +1,79 @@
+const path = require('path');
 const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
-const http = require('http');
-const { Server } = require('socket.io');
-const Message = require('./models/Message');
-const swaggerUi = require('swagger-ui-express');
-const YAML = require('yamljs');
-const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
+const swaggerDocument = require('./swagger.json');
 const mongoose = require('mongoose');
-const path = require('path');
 const errorHandler = require('./middleware/errorMiddleware');
+const Message = require('./models/Message');
 
 dotenv.config();
 connectDB();
 
 const app = express();
 app.use(express.json());
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' }
+
+app.get('/swagger.json', (req, res) => res.json(swaggerDocument));
+
+app.get('/api-docs', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <title>EventPulse API Docs</title>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css" />
+    </head>
+    <body>
+      <div id="swagger-ui"></div>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.js"></script>
+      <script>
+        window.onload = () => {
+          window.ui = SwaggerUIBundle({
+            url: '/swagger.json',
+            dom_id: '#swagger-ui',
+          });
+        };
+      </script>
+    </body>
+    </html>
+  `);
 });
 
-// 1. استدعاء كل الروابط (Routes)
-const authRoutes = require('./routes/authRoutes');
-const eventRoutes = require('./routes/eventRoutes');
-const registrationRoutes = require('./routes/registrationRoutes');
-const messageRoutes = require('./routes/messageRoutes');
 
-// 2. استخدام الروابط
-app.use('/api/auth', authRoutes);
-app.use('/api/events', eventRoutes);
-app.use('/api/registrations', registrationRoutes);
-app.use('/api/messages', messageRoutes);
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/events', require('./routes/eventRoutes'));
+app.use('/api/registrations', require('./routes/registrationRoutes'));
+app.use('/api/messages', require('./routes/messageRoutes'));
 
-
-app.get('/health', (req, res) => {
-  // 1 يعني متصل بقاعدة البيانات
-  const isDbConnected = mongoose.connection.readyState === 1; 
-  if (isDbConnected) {
-    res.status(200).json({ status: 'success', message: 'Server is healthy and Database is connected' });
-  } else {
+app.get('/health', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGO_URI);
+    }
+    res.status(200).json({ status: 'success', message: 'Server is healthy' });
+  } catch (error) {
     res.status(500).json({ status: 'error', message: 'Database connection failed' });
   }
 });
 
-// 3. إعدادات Socket.io
-io.on('connection', (socket) => {
-  console.log(`New client connected: ${socket.id}`);
-
-  socket.on('joinEvent', (eventId) => {
-    socket.join(eventId);
-    console.log(`User joined event room: ${eventId}`);
-  });
-
-  socket.on('sendAnnouncement', async (data) => {
-    try {
-      const { eventId, senderId, text } = data;
-      const message = await Message.create({ event: eventId, sender: senderId, text });
-      io.to(eventId).emit('receiveAnnouncement', message);
-    } catch (error) {
-      console.error('Error saving message:', error);
-    }
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`Client disconnected: ${socket.id}`);
-  });
-});
-
-// 4. جدار معالجة الأخطاء (لازم يكون هنا في الآخر قبل تشغيل السيرفر)
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
+if (!process.env.VERCEL) {
+  const http = require('http');
+  const { Server } = require('socket.io');
+  const server = http.createServer(app);
+  const io = new Server(server, { cors: { origin: '*' } });
 
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+  io.on('connection', (socket) => {
+    console.log(`New client connected: ${socket.id}`);
+  });
+
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
 
 module.exports = app;
-
-
